@@ -171,12 +171,28 @@ function startServer() {
     });
   });
 
-  const PORT = process.env.PORT || 5000;
+  const PORT = parseInt(process.env.PORT, 10) || 5000;
+  const MAX_PORT_ATTEMPTS = 5;
 
-  app.listen(PORT, () => {
-    console.log(`\n🚀 JobConnect Server [Worker ${process.pid}] on port ${PORT}`);
-    console.log(`📍 Environment: ${process.env.NODE_ENV}`);
-    console.log(`🔗 API: http://localhost:${PORT}/api`);
-    console.log(`❤️  Health: http://localhost:${PORT}/api/health\n`);
-  });
+  const startListening = (port, attempt = 0) => {
+    const server = app.listen(port, () => {
+      console.log(`\n🚀 JobConnect Server [Worker ${process.pid}] on port ${port}`);
+      console.log(`📍 Environment: ${process.env.NODE_ENV}`);
+      console.log(`🔗 API: http://localhost:${port}/api`);
+      console.log(`❤️  Health: http://localhost:${port}/api/health\n`);
+    });
+
+    server.on('error', (error) => {
+      if (error.code === 'EADDRINUSE' && attempt < MAX_PORT_ATTEMPTS) {
+        const nextPort = port + 1;
+        console.warn(`⚠️  Port ${port} is in use. Trying port ${nextPort}...`);
+        startListening(nextPort, attempt + 1);
+      } else {
+        console.error('Server failed to start:', error.message);
+        process.exit(1);
+      }
+    });
+  };
+
+  startListening(PORT);
 }
